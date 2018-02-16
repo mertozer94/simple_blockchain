@@ -3,6 +3,7 @@ import Transactions.*;
 import java.security.Security;
 import java.util.ArrayList;
 import java.util.HashMap;
+
 import Wallet.Wallet;
 
 public class RandomChain {
@@ -10,12 +11,14 @@ public class RandomChain {
     public static ArrayList<Block> blockchain = new ArrayList<>();
     public static HashMap<String,TransactionOutput> UTXOs = new HashMap<>();
 
-    public static int difficulty = 5;
+    public static int difficulty = 1; //it is incremented with every block
     public static float minimumTransaction = 0.1f;
     public static Wallet walletA;
     public static Wallet walletB;
+    public static Wallet walletC;
     public static Transaction genesisTransaction;
-
+    public static Wallet coinbase;
+    public static Wallet miner;
     public static void main(String[] args) {
         //add our blocks to the blockchain ArrayList:
         Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider()); //Setup Bouncey castle as a Security Provider
@@ -23,9 +26,9 @@ public class RandomChain {
         //Create wallets:
         walletA = new Wallet();
         walletB = new Wallet();
-        Wallet coinbase = new Wallet();
-
-        //create genesis transaction, which sends 100 NoobCoin to walletA:
+        walletC = new Wallet();
+        coinbase = new Wallet();
+        //create genesis transaction, which sends 100 Coin to walletA:
         genesisTransaction = new Transaction(coinbase.publicKey, walletA.publicKey, 100f, null);
         genesisTransaction.generateSignature(coinbase.privateKey);	 //manually sign the genesis transaction
         genesisTransaction.transactionId = "0"; //manually set the transaction id
@@ -45,6 +48,7 @@ public class RandomChain {
         addBlock(block1);
         System.out.println("\nWalletA's balance is: " + walletA.getBalance());
         System.out.println("WalletB's balance is: " + walletB.getBalance());
+        System.out.println("WalletC's balance is: " + walletC.getBalance());
 
         Block block2 = new Block(block1.hash);
         System.out.println("\nWalletA Attempting to send more funds (1000) than it has...");
@@ -52,17 +56,27 @@ public class RandomChain {
         addBlock(block2);
         System.out.println("\nWalletA's balance is: " + walletA.getBalance());
         System.out.println("WalletB's balance is: " + walletB.getBalance());
+        System.out.println("WalletC's balance is: " + walletC.getBalance());
 
         Block block3 = new Block(block2.hash);
         System.out.println("\nWalletB is Attempting to send funds (20) to WalletA...");
         block3.addTransaction(walletB.sendFunds( walletA.publicKey, 20));
         System.out.println("\nWalletA's balance is: " + walletA.getBalance());
         System.out.println("WalletB's balance is: " + walletB.getBalance());
+        System.out.println("WalletC's balance is: " + walletC.getBalance());
 
         isChainValid();
 
     }
 
+    public void mineRewardCoin(){
+        Transaction transaction = new Transaction(coinbase.publicKey, miner.publicKey, 50f, null);
+        transaction.generateSignature(coinbase.privateKey);	 //manually sign the genesis transaction
+        transaction.transactionId = "0"; //manually set the transaction id
+        transaction.outputs.add(new TransactionOutput(transaction.recipient, transaction.amount, transaction.transactionId)); //manually add the Transactions Output
+        UTXOs.put(transaction.outputs.get(0).id, transaction.outputs.get(0)); //its important to store our first transaction in the UTXOs list.
+        System.out.println("Added 50 coins for mining block to" +  miner.publicKey + " for solving this hard problem");
+    }
     public static Boolean isChainValid() {
         Block currentBlock;
         Block previousBlock;
@@ -141,8 +155,20 @@ public class RandomChain {
         return true;
     }
 
+    public void setMiner(){
+        if (difficulty % 2 == 0)
+            miner = walletC;
+        else {
+            miner = walletB;
+        }
+    }
     public static void addBlock(Block newBlock) {
+        RandomChain chain = new RandomChain();
+        chain.setMiner();
         newBlock.mineBlock(difficulty);
+        if (difficulty != 1)//if it is not the genesis block
+            chain.mineRewardCoin();
+        difficulty +=1;
         blockchain.add(newBlock);
     }
 }
